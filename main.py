@@ -29,7 +29,7 @@ async def analizar_cv(file: UploadFile = File(...)):
         return {"error": "No se pudo extraer texto del PDF"}
 
     response = client.responses.create(
-        model="gpt-4.1",
+        model="gpt-4o-mini",
         input=f"""
       Extract the information from the following resume and return
       ONLY valid JSON.
@@ -44,7 +44,7 @@ async def analizar_cv(file: UploadFile = File(...)):
             "LANGUAGES": [{{"LANGUAGE": "", "LEVEL": ""}}],
             "EXPERIENCES": [{{"POSITION": "", "COMPANY": "", "PERIOD": "", "DESCRIPTION": ""}}],
             "ACTIVITIES": [{{"ACTIVITY": ""}}],
-            "TECHNOLOGIES": [{{"TECHNOLOGY": ""}}],
+            "TECHNOLOGIES": [{{"TECHNOLOGY": ""}}]
         }}
       
 
