@@ -23,44 +23,23 @@ def extraer_texto_pdf(file):
 @app.post("/analizar-cv")
 async def analizar_cv(file: UploadFile = File(...)):
 
-    content = await file.read()  # 👈 leer bytes reales
-    
-    pdf_stream = BytesIO(content)  # 👈 convertir a stream limpio
+    content = await file.read()
 
-    texto_cv = extraer_texto_pdf(pdf_stream)
+    print("First 20 bytes:", content[:20])
+    print("Starts with %PDF?:", content.startswith(b"%PDF"))
 
-    if not texto_cv.strip():
-        return {"error": "No se pudo extraer texto del PDF"}
+    pdf_stream = BytesIO(content)
+    pdf_stream.seek(0)   # 👈 fuerza posición 0
 
-    response = client.responses.create(
-        model="gpt-4o-mini",
-        input=f"""
-Extract the information from the following resume and return
-ONLY valid JSON.
-Any data not found should be returned as empty text.
-{{
-    "NAME": "",
-    "CITY_STATE": "",
-    "LAST_POSITION": "",
-    "SUMMARY": "",
-    "EDUCATION": [{{"DEGREE": "", "COURSE": "", "INSTITUTION": "", "YEAR": ""}}],
-    "CERTIFICATIONS": [{{"CERTIFICATION": "", "INSTITUTION": "", "YEAR": ""}}],
-    "LANGUAGES": [{{"LANGUAGE": "", "LEVEL": ""}}],
-    "EXPERIENCES": [{{"POSITION": "", "COMPANY": "", "PERIOD": "", "DESCRIPTION": ""}}],
-    "ACTIVITIES": [{{"ACTIVITY": ""}}],
-    "TECHNOLOGIES": [{{"TECHNOLOGY": ""}}]
-}}
+    reader = PdfReader(pdf_stream)
 
-Do not add explanations.
-Do not add additional text.
-Only valid JSON.
+    print("Number of pages:", len(reader.pages))
 
-CV:
-{texto_cv}
-"""
-    )
+    texto = ""
+    for page in reader.pages:
+        contenido = page.extract_text()
+        print("Page text length:", len(contenido) if contenido else 0)
+        if contenido:
+            texto += contenido
 
-    texto_respuesta = response.output_text
-    texto_respuesta = texto_respuesta.replace("```json", "").replace("```", "").strip()
-
-    return json.loads(texto_respuesta)
+    return {"texto_length": len(texto)}
