@@ -24,7 +24,7 @@ def extraer_texto_pdf(file):
 async def analizar_cv(file: UploadFile = File(...)):
 
     content = await file.read()  # 👈 leer bytes reales
-    content = content.lstrip()
+    
     pdf_stream = BytesIO(content)  # 👈 convertir a stream limpio
 
     texto_cv = extraer_texto_pdf(pdf_stream)
