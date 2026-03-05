@@ -19,48 +19,13 @@ def extraer_texto_pdf(file):
             texto += contenido
     return texto
 
-
 @app.post("/analizar-cv")
 async def analizar_cv(file: UploadFile = File(...)):
 
-    texto_cv = extraer_texto_pdf(file.file)
+    content = await file.read()
 
-    if not texto_cv.strip():
-        return {"error": "No se pudo extraer texto del PDF"}
+    print("Content type:", file.content_type)
+    print("First 10 bytes:", content[:10])
+    print("Size:", len(content))
 
-    response = client.responses.create(
-        model="gpt-4o-mini",
-        input=f"""
-      Extract the information from the following resume and return
-      ONLY valid JSON.
-      Any data not found should be returned as empty text.
-        {{
-            "NAME": "",
-            "CITY_STATE": "",
-            "LAST_POSITION": "",
-            "SUMMARY": "",
-            "EDUCATION": [{{"DEGREE": "", "COURSE": "", "INSTITUTION": "", "YEAR": ""}}],
-            "CERTIFICATIONS": [{{"CERTIFICATION": "", "INSTITUTION": "", "YEAR": ""}}],
-            "LANGUAGES": [{{"LANGUAGE": "", "LEVEL": ""}}],
-            "EXPERIENCES": [{{"POSITION": "", "COMPANY": "", "PERIOD": "", "DESCRIPTION": ""}}],
-            "ACTIVITIES": [{{"ACTIVITY": ""}}],
-            "TECHNOLOGIES": [{{"TECHNOLOGY": ""}}]
-        }}
-      
-
-        Do not add explanations.
-        Do not add additional text.
-        Only valid JSON.
-
-        CV:
-        {texto_cv}
-        """
-    )
-
-
-    #return {"resultado": response.output_text}
-    
-    texto_respuesta = response.output_text
-    texto_respuesta = texto_respuesta.replace("```json", "").replace("```", "").strip()
-
-    return json.loads(texto_respuesta)
+    return {"size": len(content)}
