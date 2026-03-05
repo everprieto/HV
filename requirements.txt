@@ -4,3 +4,12 @@ pypdf
 openai
 python-dotenv
 python-multipart
+python-docx
+pdf2image
+pytesseract
+pillow
+pydantic
+
+
+
+
