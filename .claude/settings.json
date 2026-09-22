@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./venv/Scripts/python.exe -c \"import main; print\\('routes:', [r.path for r in main.app.routes if hasattr\\(r, 'path'\\)]\\)\")"
+      "Bash(./venv/Scripts/python.exe -c \"import main; print\\('routes:', [r.path for r in main.app.routes if hasattr\\(r, 'path'\\)]\\)\")",
+      "Bash(./venv/Scripts/python.exe -c ' *)",
+      "Bash(./venv/Scripts/python.exe -m py_compile main.py)",
+      "Bash(./venv/Scripts/python.exe -c \"import main; print\\('OK, routes:', [r.path for r in main.app.routes if hasattr\\(r,'path'\\)]\\)\")"
     ]
   }
 }

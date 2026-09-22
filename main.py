@@ -33,7 +33,19 @@ app = FastAPI(
 )
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+# Some Anthropic API keys are organization-level (not scoped to a single
+# workspace). Those require the request to carry an explicit
+# anthropic-workspace-id header naming which workspace to bill/run under.
+_anthropic_workspace_id = os.getenv("ANTHROPIC_WORKSPACE_ID")
+anthropic_client = Anthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
+    default_headers=(
+        {"anthropic-workspace-id": _anthropic_workspace_id}
+        if _anthropic_workspace_id
+        else None
+    ),
+)
 
 # ---------------------------------------------------------------------------
 # Constants
