@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from pypdf import PdfReader
 from docx import Document
 from openai import OpenAI
+from anthropic import Anthropic
 from dotenv import load_dotenv
 from pdf2image import convert_from_bytes
 
@@ -32,12 +33,15 @@ app = FastAPI(
 )
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 MODEL_NAME = "gpt-4o-mini"
+CLAUDE_MODEL_NAME = "claude-sonnet-5"
+CLAUDE_MAX_TOKENS = 16000
 PDF_MAGIC_BYTES = b"%PDF"
 DOCX_MAGIC_BYTES = b"PK"
 
@@ -157,6 +161,35 @@ def call_openai(prompt: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Claude (Anthropic) helper
+# ---------------------------------------------------------------------------
+
+def call_claude(prompt: str) -> dict:
+    """
+    Send a prompt to Claude and return a parsed JSON dict.
+
+    Raises:
+        HTTPException: If the model response cannot be parsed as JSON.
+    """
+    response = anthropic_client.messages.create(
+        model=CLAUDE_MODEL_NAME,
+        max_tokens=CLAUDE_MAX_TOKENS,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    raw_text = next((block.text for block in response.content if block.type == "text"), "")
+    raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse Claude response as JSON: %s", raw_text)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The model returned an invalid JSON response.",
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -201,6 +234,25 @@ Resume:
     return result
 
 
+def build_document_analysis_prompt(request: DocumentAnalysisRequest, document_text: str) -> str:
+    """Build the shared prompt used by the document-analysis endpoints."""
+    json_structure = json.dumps(request.json_structure, ensure_ascii=False, indent=4)
+
+    return f"""
+{request.prompt}
+
+Fill the following JSON structure using the document content below.
+Any data not found should be returned as empty text or empty array as appropriate.
+Return ONLY valid JSON, no explanations.
+
+JSON structure:
+{json_structure}
+
+Document:
+{document_text}
+"""
+
+
 @app.post(
     "/documents/analyze",
     summary="Analyze a document with a custom schema",
@@ -223,22 +275,37 @@ async def analyze_document(request: DocumentAnalysisRequest) -> dict:
             detail="Could not extract any text from the provided file.",
         )
 
-    json_structure = json.dumps(request.json_structure, ensure_ascii=False, indent=4)
-
-    prompt = f"""
-{request.prompt}
-
-Fill the following JSON structure using the document content below.
-Any data not found should be returned as empty text or empty array as appropriate.
-Return ONLY valid JSON, no explanations.
-
-JSON structure:
-{json_structure}
-
-Document:
-{document_text}
-"""
+    prompt = build_document_analysis_prompt(request, document_text)
 
     result = call_openai(prompt)
     logger.info("Document analysis completed successfully.")
+    return result
+
+
+@app.post(
+    "/documents/analyze-claude",
+    summary="Analyze a document with a custom schema using Claude",
+    response_description="Document data structured according to the provided JSON schema.",
+    status_code=status.HTTP_200_OK,
+)
+async def analyze_document_claude(request: DocumentAnalysisRequest) -> dict:
+    """
+    Same contract as /documents/analyze (same request and response shape),
+    but uses the Claude (Anthropic) API instead of OpenAI.
+    """
+    logger.info("Received request to analyze document with custom schema using Claude.")
+
+    file_bytes = base64.b64decode(request.file_base64)
+    document_text = extract_text(file_bytes)
+
+    if not document_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not extract any text from the provided file.",
+        )
+
+    prompt = build_document_analysis_prompt(request, document_text)
+
+    result = call_claude(prompt)
+    logger.info("Document analysis (Claude) completed successfully.")
     return result

@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pypdf
 openai
+anthropic
 python-dotenv
 python-multipart
 python-docx
